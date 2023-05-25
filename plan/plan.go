@@ -23,6 +23,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	log "github.com/sirupsen/logrus"
+	"k8s.io/utils/strings/slices"
 
 	"sigs.k8s.io/external-dns/endpoint"
 )
@@ -174,9 +175,15 @@ func (p *Plan) Calculate() *Plan {
 		if p.TXTOwnerMigrate && row.current != nil && len(row.candidates) > 0 && row.current.Labels[endpoint.OwnerLabelKey] == p.TXTOwnerOld {
 			hasMig = true
 			oldOwner := row.current.Labels[endpoint.OwnerLabelKey]
-			update := row.current
+			update := row.current.DeepCopy()
 			update.Labels[endpoint.OwnerLabelKey] = p.TXTOwner
-			log.Infof("find a record owner!=%s: it's DNSName: %s, old-owner: %s, type: %s\n", p.TXTOwner, row.current.DNSName, oldOwner, row.current.RecordType)
+			// log.Infof("find a record owner!=%s: it's DNSName: %s, old-owner: %s, type: %s\n", p.TXTOwner, row.current.DNSName, oldOwner, row.current.RecordType)
+			log.WithFields(log.Fields{
+				"previousOwner": oldOwner,
+				"newOwner":      p.TXTOwner,
+				"dnsName":       row.current.DNSName,
+				"recordType":    row.current.RecordType,
+			}).Info("Found record to migrate")
 			changes.UpdateNew = append(changes.UpdateNew, update)
 			changes.UpdateOld = append(changes.UpdateOld, row.current)
 			continue
@@ -204,9 +211,14 @@ func (p *Plan) Calculate() *Plan {
 	}
 
 	plan := &Plan{
-		Current:        p.Current,
-		Desired:        p.Desired,
-		Changes:        changes,
+		Current: p.Current,
+		Desired: p.Desired,
+		Changes: &Changes{
+			Create:    changes.Create,
+			UpdateNew: filterOwnedRecords(p.TXTOwner, p.TXTOwnerOld, p.TXTOwnerMigrate, changes.UpdateNew),
+			UpdateOld: filterOwnedRecords(p.TXTOwner, p.TXTOwnerOld, p.TXTOwnerMigrate, changes.UpdateOld),
+			Delete:    filterOwnedRecords(p.TXTOwner, p.TXTOwnerOld, p.TXTOwnerMigrate, changes.Delete),
+		},
 		ManagedRecords: []string{endpoint.RecordTypeA, endpoint.RecordTypeAAAA, endpoint.RecordTypeCNAME},
 		HasMig:         hasMig,
 	}
@@ -266,6 +278,29 @@ func (p *Plan) shouldUpdateProviderSpecific(desired, current *endpoint.Endpoint)
 	}
 
 	return false
+}
+
+// TODO(ideahitme): consider moving this to Plan
+func filterOwnedRecords(ownerID string, ownerIDOld string, migrate bool, eps []*endpoint.Endpoint) []*endpoint.Endpoint {
+	filtered := []*endpoint.Endpoint{}
+	ownerIDs := []string{ownerID}
+
+	if migrate {
+		ownerIDs = append(ownerIDs, ownerIDOld)
+	}
+
+	for _, ep := range eps {
+		if endpointOwner, ok := ep.Labels[endpoint.OwnerLabelKey]; !ok || !slices.Contains(ownerIDs, endpointOwner) {
+			log.Debugf(`Skipping endpoint %v because owner id does not match, found: "%s", required: "%s"`, ep, endpointOwner, ownerIDs)
+			continue
+		}
+		filtered = append(filtered, ep)
+	}
+
+	if len(filtered) == 0 {
+		return nil
+	}
+	return filtered
 }
 
 // filterRecordsForPlan removes records that are not relevant to the planner.

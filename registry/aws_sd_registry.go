@@ -74,14 +74,7 @@ func (sdr *AWSSDRegistry) MissingRecords() []*endpoint.Endpoint {
 
 // ApplyChanges filters out records not owned the External-DNS, additionally it adds the required label
 // inserted in the AWS SD instance as a CreateID field
-func (sdr *AWSSDRegistry) ApplyChanges(ctx context.Context, changes *plan.Changes) error {
-	filteredChanges := &plan.Changes{
-		Create:    changes.Create,
-		UpdateNew: filterOwnedRecords(sdr.ownerID, changes.UpdateNew),
-		UpdateOld: filterOwnedRecords(sdr.ownerID, changes.UpdateOld),
-		Delete:    filterOwnedRecords(sdr.ownerID, changes.Delete),
-	}
-
+func (sdr *AWSSDRegistry) ApplyChanges(ctx context.Context, filteredChanges *plan.Changes) error {
 	sdr.updateLabels(filteredChanges.Create)
 	sdr.updateLabels(filteredChanges.UpdateNew)
 	sdr.updateLabels(filteredChanges.UpdateOld)

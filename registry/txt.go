@@ -241,13 +241,7 @@ func (im *TXTRegistry) generateTXTRecord(r *endpoint.Endpoint) []*endpoint.Endpo
 
 // ApplyChanges updates dns provider with the changes
 // for each created/deleted record it will also take into account TXT records for creation/deletion
-func (im *TXTRegistry) ApplyChanges(ctx context.Context, changes *plan.Changes) error {
-	filteredChanges := &plan.Changes{
-		Create:    changes.Create,
-		UpdateNew: filterOwnedRecords(im.ownerID, changes.UpdateNew),
-		UpdateOld: filterOwnedRecords(im.ownerID, changes.UpdateOld),
-		Delete:    filterOwnedRecords(im.ownerID, changes.Delete),
-	}
+func (im *TXTRegistry) ApplyChanges(ctx context.Context, filteredChanges *plan.Changes) error {
 	for _, r := range filteredChanges.Create {
 		if r.Labels == nil {
 			r.Labels = make(map[string]string)

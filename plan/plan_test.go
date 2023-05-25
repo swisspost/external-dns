@@ -265,7 +265,7 @@ func (suite *PlanTestSuite) SetupTest() {
 		RecordType: "A",
 		Labels: map[string]string{
 			endpoint.ResourceLabelKey: "ingress/default/foo-v1",
-			endpoint.OwnerLabelKey:    "owner",
+			endpoint.OwnerLabelKey:    "owner-new",
 		},
 	}
 }
@@ -551,7 +551,7 @@ func (suite *PlanTestSuite) TestMigrateTXTRecord() {
 	current := []*endpoint.Endpoint{suite.migrateTXTOwnerOld}
 	desired := []*endpoint.Endpoint{suite.migrateTXTOwnerOld}
 	expectedCreate := []*endpoint.Endpoint{}
-	expectedUpdateOld := []*endpoint.Endpoint{suite.migrateTXTOwnerNew}
+	expectedUpdateOld := []*endpoint.Endpoint{suite.migrateTXTOwnerOld}
 	expectedUpdateNew := []*endpoint.Endpoint{suite.migrateTXTOwnerNew}
 	expectedDelete := []*endpoint.Endpoint{}
 
@@ -561,7 +561,7 @@ func (suite *PlanTestSuite) TestMigrateTXTRecord() {
 		Desired:         desired,
 		TXTOwnerMigrate: true,
 		TXTOwnerOld:     "owner-old",
-		TXTOwner:        "owner",
+		TXTOwner:        "owner-new",
 		ManagedRecords:  []string{endpoint.RecordTypeA},
 	}
 
